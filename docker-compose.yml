@@ -1,0 +1,47 @@
+services:
+  pdf-ocr:
+    build: .
+    image: pdf-ocr-cpu:latest
+    container_name: pdf-ocr
+    restart: unless-stopped
+    ports:
+      - "5003:5000"
+    environment:
+      # ── 基础配置 ──────────────────────────────────────────────
+      - TZ=Asia/Shanghai
+      - CPU_THREADS=4
+      - OCR_DPI=200
+      - MAX_UPLOAD_MB=200
+      - MAX_FILE_AGE=3600
+      - MIN_CONFIDENCE=0.5
+      # ── 关键底层环境控制（解决 OOM 和强杀的真凶） ────────────────
+      # 1. 强制底层 OpenMP 矩阵运算只使用 4 个线程，彻底解决多核内存翻倍飙升
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      # 2. 告诉 Gunicorn 超时时间放宽到 600 秒（10分钟），防止大文件识别中途被系统误杀
+      - GUNICORN_CMD_ARGS=--timeout 600 --workers 1 --threads 2
+      - PP_OCR_MAX_SIDE_LEN=1440 # 控制内存，拍照足够清晰
+      - PP_OCR_BATCH_MODE=False  # 逐页处理，不一次性爆内存
+      # ── PP-OCRv5 推理增强开关 ──────────────────────────────────
+      # 文档方向分类：检测横拍/倒置文档，强烈建议开启
+      - USE_DOC_ORIENTATION=true
+      # 文档畸变矫正：矫正手机拍摄的梯形/弯曲变形，建议开启
+      - USE_DOC_UNWARPING=true
+      # 行级文字方向：用于竖排文字场景（法律文书无需，保持关闭）
+      - USE_TEXTLINE_ORI=false
+
+    volumes:
+      - paddle_models:/root/.paddleocr
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+   # mem_limit: 8g
+    cpus: "14"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  paddle_models:

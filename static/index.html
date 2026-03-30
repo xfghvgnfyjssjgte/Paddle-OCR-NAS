@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaddleOCR NAS Web · PP-OCRv5 文档识别 · v1.1</title>
+<meta name="description" content="面向 NAS 的 PaddleOCR PP-OCRv5 文档识别：PDF / 图片上传，导出可搜索 PDF、Markdown 与 Word。按需加载引擎，节省内存。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #eef1f6;
+  --surface:   #ffffff;
+  --border:    #e2e8f0;
+  --border-hi: #cbd5e1;
+  --accent:    #2563eb;
+  --accent2:   #dc2626;
+  --text:      #334155;
+  --text-dim:  #64748b;
+  --text-hi:   #0f172a;
+  --sans:      'Noto Sans SC', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius:    12px;
+  --shadow:    0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 90% 50% at 50% -30%, rgba(37, 99, 235, 0.09), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+header {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 36px 0 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-brand { flex: 1; min-width: 0; }
+
+.logo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 14px;
+}
+
+.logo-mark {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-hi);
+  line-height: 1.2;
+}
+.logo-mark .logo-accent { color: var(--accent); }
+.logo-mark .logo-sep {
+  font-weight: 500;
+  color: var(--text-dim);
+  font-size: 0.55em;
+  margin: 0 0.12em;
+  vertical-align: middle;
+  letter-spacing: 0;
+}
+
+.logo-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+.badge-model {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.06));
+  color: var(--accent);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+}
+.badge-version {
+  background: #f1f5f9;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.logo-sub {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-top: 10px;
+  line-height: 1.55;
+  max-width: 52ch;
+}
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.status-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-hi);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-top: 28px;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+.panel::before {
+  display: none;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border-hi);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.04);
+  box-shadow: var(--shadow);
+}
+.drop-zone input[type=file] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.drop-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  border: none;
+  border-radius: 50%;
+  background: #e8eef9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--accent);
+  transition: background 0.2s, transform 0.2s;
+}
+.drop-zone:hover .drop-icon {
+  background: rgba(37, 99, 235, 0.12);
+  transform: scale(1.03);
+}
+
+.drop-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-hi);
+  margin-bottom: 6px;
+}
+.drop-hint {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.mode-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+.mode-btn {
+  flex: 1;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.mode-btn:hover {
+  border-color: var(--border-hi);
+  color: var(--text);
+  background: var(--surface);
+}
+.mode-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(37, 99, 235, 0.06);
+  box-shadow: var(--shadow);
+}
+.mode-btn .mode-icon { font-size: 16px; }
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+.btn-primary:active {
+  transform: scale(0.99);
+}
+.btn-primary:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.file-tag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: var(--radius);
+  display: none;
+}
+.file-tag.show { display: flex; }
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-size {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.file-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.file-clear:hover {
+  color: var(--accent2);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.progress-panel {
+  display: none;
+  margin-top: 28px;
+}
+.progress-panel.show { display: block; }
+
+.job-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+/* 半透明背景填充式进度条 */
+.job-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 99, 235, 0.055);
+  transform-origin: left;
+  transform: scaleX(var(--pct-dec, 0));
+  transition: transform 0.5s ease;
+  pointer-events: none;
+  border-radius: var(--radius);
+}
+/* 底部细线保留，双层视觉 */
+.job-row::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #60a5fa);
+  transition: width 0.5s ease;
+  width: var(--pct, 0%);
+  border-radius: 0 2px 2px 0;
+}
+.job-row.done::before {
+  background: rgba(22, 163, 74, 0.07);
+  transform: scaleX(1);
+}
+.job-row.done::after {
+  background: #16a34a;
+  width: 100%;
+}
+.job-row.error::before {
+  background: rgba(220, 38, 38, 0.06);
+  transform: scaleX(1);
+}
+.job-row.error::after {
+  background: var(--accent2);
+  width: 100%;
+}
+
+.job-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+.job-row.done .job-spinner {
+  animation: none;
+  border-color: #16a34a;
+  border-top-color: #16a34a;
+}
+.job-row.error .job-spinner {
+  animation: none;
+  border-color: var(--accent2);
+  border-top-color: var(--accent2);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.job-info { flex: 1; min-width: 0; }
+.job-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.job-message {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.job-timing {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.job-pct {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 52px;
+  text-align: right;
+}
+.job-row.done .job-pct { color: #16a34a; }
+.job-row.error .job-pct {
+  color: var(--accent2);
+  font-size: 14px;
+}
+
+.cancel-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.cancel-btn:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  background: #fef2f2;
+}
+
+.result-panel { display: none; }
+.result-panel.show { display: block; }
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.result-card {
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: var(--shadow);
+}
+.result-card:hover {
+  border-color: var(--border-hi);
+  box-shadow: var(--shadow-md);
+}
+
+.result-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.result-filename {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  word-break: break-all;
+}
+.download-btn {
+  margin-top: auto;
+  padding: 10px 14px;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  text-align: center;
+  transition: background 0.15s;
+}
+.download-btn:hover {
+  background: #1d4ed8;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 28px;
+  padding: 18px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-val {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-hi);
+  line-height: 1.1;
+}
+.stat-key {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.toast-wrap {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+.toast {
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: 14px;
+  color: var(--text);
+  animation: slide-in 0.25s ease;
+  max-width: 320px;
+  box-shadow: var(--shadow-md);
+}
+.toast.err {
+  border-left-color: var(--accent2);
+}
+@keyframes slide-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ── Engine control panel ── */
+.engine-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 24px;
+  margin-top: 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.engine-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.engine-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #94a3b8;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.engine-dot.standby  { background: #94a3b8; }
+.engine-dot.loading  {
+  background: #f59e0b;
+  animation: pulse 0.8s ease-in-out infinite;
+}
+.engine-dot.active   {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.engine-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.engine-status-main {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+.engine-status-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.engine-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-engine-start {
+  padding: 9px 20px;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn-engine-start:hover   { background: #15803d; }
+.btn-engine-start:active  { transform: scale(0.98); }
+.btn-engine-start:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.btn-engine-stop {
+  padding: 9px 20px;
+  background: transparent;
+  color: var(--accent2);
+  border: 1px solid var(--accent2);
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn-engine-stop:hover  { background: #fef2f2; }
+.btn-engine-stop:active { transform: scale(0.98); }
+
+.engine-countdown {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.engine-countdown span {
+  color: var(--text-hi);
+  font-weight: 700;
+}
+
+.option-row {
+  margin-top: 16px;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label input[type=checkbox] {
+  display: none;
+}
+
+.toggle-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: #cbd5e1;
+  border-radius: 11px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+.toggle-label input:checked + .toggle-track {
+  background: var(--accent);
+}
+
+.toggle-label input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+}
+
+.toggle-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+
+.toggle-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: 2px;
+}
+
+.site-footer {
+  margin-top: 48px;
+  padding: 22px 0 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.footer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.footer-tagline {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.footer-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border-hi);
+  flex-shrink: 0;
+}
+
+.footer-tech {
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.footer-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.footer-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.engine-options {
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.engine-opt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: var(--text-dim);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
+}
+.engine-opt-btn:hover {
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+.engine-opt-btn.on {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.07);
+  color: var(--accent);
+}
+.engine-opt-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.engine-opt-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.engine-opt-label { line-height: 1; }
+.engine-opt-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(37,99,235,0.12);
+  color: var(--accent);
+  margin-left: 2px;
+}
+.engine-opt-btn.on .engine-opt-badge {
+  background: rgba(37,99,235,0.18);
+}
+
+@media (max-width: 540px) {
+  .mode-row { flex-direction: column; }
+  .logo-mark { font-size: 21px; }
+  .stats-bar { flex-wrap: wrap; }
+  .toggle-hint { display: none; }
+  .site-footer { flex-direction: column; align-items: flex-start; }
+  .footer-dot { display: none; }
+  .engine-options { gap: 8px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Header -->
+  <header>
+    <div class="header-brand">
+      <div class="logo-row">
+        <div class="logo-mark">PaddleOCR NAS <span class="logo-sep">·</span> <span class="logo-accent">文档识别</span></div>
+        <div class="logo-badges" aria-label="模型与版本">
+          <span class="badge badge-model">PP-OCRv5</span>
+          <span class="badge badge-version">v1.1</span>
+        </div>
+      </div>
+      <p class="logo-sub">专为 NAS 场景设计：按需加载引擎、节省内存。支持 PDF / JPG / PNG，输出可搜索 PDF、Markdown 与 Word。</p>
+    </div>
+    <div class="header-right">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-label" id="statusLabel">ONLINE</div>
+    </div>
+  </header>
+
+  <!-- Engine control panel -->
+  <div class="engine-panel" id="enginePanel">
+    <div class="engine-indicator">
+      <div class="engine-dot standby" id="engineDot"></div>
+      <div class="engine-status-text">
+        <div class="engine-status-main" id="engineStatusMain">引擎待机中</div>
+        <div class="engine-status-sub" id="engineStatusSub">启动后方可识别文件</div>
+      </div>
+    </div>
+    <div class="engine-actions">
+      <div class="engine-countdown" id="engineCountdown" style="display:none">
+        自动关闭：<span id="countdownVal">--:--</span>
+      </div>
+      <button class="btn-engine-start" id="btnEngineStart">▶ 启动引擎</button>
+      <button class="btn-engine-stop"  id="btnEngineStop"  style="display:none">■ 关闭引擎</button>
+    </div>
+    <!-- OCR 推理选项，引擎启动前可调，启动后锁定 -->
+    <div class="engine-options" id="engineOptions">
+      <button class="engine-opt-btn on" id="optOrientation" title="检测横拍/倒置文档，防止识别乱码">
+        <span class="engine-opt-dot"></span>
+        <span class="engine-opt-label">方向校正</span>
+      </button>
+      <button class="engine-opt-btn" id="optUnwarping" title="矫正手机拍摄的梯形/弯曲变形，提升识别率，速度约慢 30%">
+        <span class="engine-opt-dot"></span>
+        <span class="engine-opt-label">畸变矫正</span>
+        <span class="engine-opt-badge">慢</span>
+      </button>
+      <button class="engine-opt-btn" id="optTextlineOri" title="用于竖排文字场景，法律文书建议关闭">
+        <span class="engine-opt-dot"></span>
+        <span class="engine-opt-label">竖排文字</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Upload panel -->
+  <div class="panel">
+    <div class="section-label">上传文件</div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png">
+      <div class="drop-icon">⬆</div>
+      <div class="drop-title">拖拽文件到此处</div>
+      <div class="drop-hint">支持 PDF、JPG、PNG · 最大 200 MB</div>
+    </div>
+
+    <div class="file-tag" id="fileTag">
+      <span class="file-name" id="fileName">—</span>
+      <span class="file-size" id="fileSize"></span>
+      <button class="file-clear" id="fileClear" title="清除">✕</button>
+    </div>
+
+    <div class="section-label" style="margin-top:24px">输出格式</div>
+    <div class="mode-row">
+      <button class="mode-btn active" data-mode="pdf">
+        <span class="mode-icon">🔍</span> 可搜索 PDF
+      </button>
+      <button class="mode-btn" data-mode="markdown">
+        <span class="mode-icon">📄</span> Markdown / DOCX
+      </button>
+    </div>
+
+    <!-- 页眉页脚清理开关，仅 markdown 模式显示 -->
+    <div class="option-row" id="cleanHeaderRow" style="display:none">
+      <label class="toggle-label">
+        <input type="checkbox" id="cleanHeaderToggle">
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+        <span class="toggle-text">清理页眉页脚</span>
+        <span class="toggle-hint">自动过滤顶部/底部边缘的页码、标题等干扰内容</span>
+      </label>
+    </div>
+
+    <button class="btn-primary" id="submitBtn" disabled>
+      开始识别
+    </button>
+  </div>
+
+  <!-- Progress panel -->
+  <div class="progress-panel" id="progressPanel">
+    <div class="section-label">识别进度</div>
+    <div id="jobsList"></div>
+  </div>
+
+  <!-- Result panel -->
+  <div class="result-panel" id="resultPanel">
+    <div class="section-label">下载结果</div>
+    <div class="result-grid" id="resultGrid"></div>
+    <div class="stats-bar" id="statsBar"></div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-meta">
+      <span class="footer-tagline">PaddleOCR NAS WebUI</span>
+      <span class="footer-dot" aria-hidden="true"></span>
+      <span class="footer-tech">百度 PaddleOCR · PP-OCRv5</span>
+      <span class="footer-dot" aria-hidden="true"></span>
+      <span class="footer-tech">作者：望天追风や</span>
+    </div>
+    <div class="footer-actions">
+      <a class="footer-link" href="https://github.com/xfghvgnfyjssjgte/Paddle-OCR-NAS" target="_blank" rel="noopener noreferrer">在 GitHub 上查看源码</a>
+    </div>
+  </footer>
+
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+(() => {
+  // ── State ──────────────────────────────────────────────────────────────────
+  let selectedFile      = null;
+  let selectedMode      = 'pdf';
+  let activeJobs        = {};
+  let engineLoaded      = false;
+  let lastActivity      = 0;
+  let idleTimeout       = 3600;
+  let countdownTimer    = null;
+  let cleanHeaderEnabled   = false;
+  // OCR 引擎推理选项（引擎未加载时可切换，加载后锁定）
+  let optOrientationOn  = true;    // 方向校正：默认开
+  let optUnwarpingOn    = false;   // 畸变矫正：默认关（速度优先）
+  let optTextlineOriOn  = false;   // 竖排文字：默认关
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const dropZone        = document.getElementById('dropZone');
+  const fileInput       = document.getElementById('fileInput');
+  const fileTag         = document.getElementById('fileTag');
+  const fileName        = document.getElementById('fileName');
+  const fileSize        = document.getElementById('fileSize');
+  const fileClear       = document.getElementById('fileClear');
+  const submitBtn       = document.getElementById('submitBtn');
+  const progressPanel   = document.getElementById('progressPanel');
+  const jobsList        = document.getElementById('jobsList');
+  const resultPanel     = document.getElementById('resultPanel');
+  const resultGrid      = document.getElementById('resultGrid');
+  const statsBar        = document.getElementById('statsBar');
+  const statusDot       = document.getElementById('statusDot');
+  const statusLabel     = document.getElementById('statusLabel');
+  const toastWrap       = document.getElementById('toastWrap');
+  // clean header toggle
+  const cleanHeaderRow    = document.getElementById('cleanHeaderRow');
+  const cleanHeaderToggle = document.getElementById('cleanHeaderToggle');
+  // engine option buttons
+  const optOrientationBtn  = document.getElementById('optOrientation');
+  const optUnwarpingBtn    = document.getElementById('optUnwarping');
+  const optTextlineOriBtn  = document.getElementById('optTextlineOri');
+  const engineOptions      = document.getElementById('engineOptions');
+  // engine
+  const engineDot       = document.getElementById('engineDot');
+  const engineStatusMain = document.getElementById('engineStatusMain');
+  const engineStatusSub  = document.getElementById('engineStatusSub');
+  const engineCountdown  = document.getElementById('engineCountdown');
+  const countdownVal     = document.getElementById('countdownVal');
+  const btnEngineStart   = document.getElementById('btnEngineStart');
+  const btnEngineStop    = document.getElementById('btnEngineStop');
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  function toast(msg, err = false) {
+    const el = document.createElement('div');
+    el.className = 'toast' + (err ? ' err' : '');
+    el.textContent = msg;
+    toastWrap.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  // ── Health check ──────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const r = await fetch('/api/health');
+      const d = await r.json();
+      if (d.status === 'ok') {
+        statusDot.style.background = 'var(--accent)';
+        statusDot.style.boxShadow  = '0 0 0 2px rgba(37,99,235,0.25)';
+        statusLabel.textContent    = '服务正常';
+      }
+    } catch {
+      statusDot.style.background = 'var(--accent2)';
+      statusDot.style.boxShadow  = 'none';
+      statusLabel.textContent    = '服务离线';
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 30000);
+
+  // ── Engine UI update ───────────────────────────────────────────────────────
+  function setEngineUI(state) {
+    // state: 'standby' | 'loading' | 'active'
+    engineDot.className = 'engine-dot ' + state;
+
+    if (state === 'standby') {
+      engineStatusMain.textContent = '引擎待机中';
+      engineStatusSub.textContent  = '启动后方可识别文件';
+      btnEngineStart.style.display = '';
+      btnEngineStart.disabled      = false;
+      btnEngineStop.style.display  = 'none';
+      engineCountdown.style.display = 'none';
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    } else if (state === 'loading') {
+      engineStatusMain.textContent = '正在加载引擎…';
+      engineStatusSub.textContent  = '首次加载需下载模型，请稍候';
+      btnEngineStart.disabled      = true;
+      btnEngineStop.style.display  = 'none';
+      engineCountdown.style.display = 'none';
+    } else if (state === 'active') {
+      engineStatusMain.textContent = '引擎运行中';
+      btnEngineStart.style.display = 'none';
+      btnEngineStop.style.display  = '';
+      engineCountdown.style.display = '';
+      startCountdown();
+    }
+    updateSubmitBtn();
+  }
+
+  // ── Countdown ──────────────────────────────────────────────────────────────
+  function startCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      if (!engineLoaded || lastActivity === 0) { countdownVal.textContent = '--:--'; return; }
+      const remaining = Math.max(0, idleTimeout - (Date.now() / 1000 - lastActivity));
+      const m = Math.floor(remaining / 60);
+      const s = Math.floor(remaining % 60);
+      countdownVal.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      // Update sub text with last activity hint
+      const minAgo = Math.floor((Date.now() / 1000 - lastActivity) / 60);
+      engineStatusSub.textContent = minAgo < 1 ? '刚刚有操作' : `${minAgo} 分钟前有操作`;
+    }, 1000);
+  }
+
+  // ── Engine option buttons ─────────────────────────────────────────────────
+  function syncOptBtn(btn, on) {
+    if (on) btn.classList.add('on');
+    else    btn.classList.remove('on');
+  }
+
+  function lockEngineOptions(locked) {
+    [optOrientationBtn, optUnwarpingBtn, optTextlineOriBtn].forEach(b => {
+      b.disabled = locked;
+      b.title    = locked ? '引擎运行中，请先关闭再修改' : b.getAttribute('data-tip') || b.title;
+    });
+  }
+
+  optOrientationBtn.addEventListener('click', () => {
+    if (optOrientationBtn.disabled) return;
+    optOrientationOn = !optOrientationOn;
+    syncOptBtn(optOrientationBtn, optOrientationOn);
+  });
+  optUnwarpingBtn.addEventListener('click', () => {
+    if (optUnwarpingBtn.disabled) return;
+    optUnwarpingOn = !optUnwarpingOn;
+    syncOptBtn(optUnwarpingBtn, optUnwarpingOn);
+  });
+  optTextlineOriBtn.addEventListener('click', () => {
+    if (optTextlineOriBtn.disabled) return;
+    optTextlineOriOn = !optTextlineOriOn;
+    syncOptBtn(optTextlineOriBtn, optTextlineOriOn);
+  });
+
+  // ── Engine API calls ───────────────────────────────────────────────────────
+  async function fetchModelStatus() {
+    try {
+      const r = await fetch('/api/model/status');
+      const d = await r.json();
+      engineLoaded = d.loaded;
+      lastActivity = d.last_activity || 0;
+      idleTimeout  = d.idle_timeout  || 3600;
+      setEngineUI(engineLoaded ? 'active' : 'standby');
+      lockEngineOptions(engineLoaded);
+    } catch { /* ignore */ }
+  }
+
+  btnEngineStart.addEventListener('click', async () => {
+    setEngineUI('loading');
+    lockEngineOptions(true);
+    try {
+      const r = await fetch('/api/model/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          use_doc_orientation:    optOrientationOn,
+          use_doc_unwarping:      optUnwarpingOn,
+          use_textline_orientation: optTextlineOriOn,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '加载失败');
+      engineLoaded = true;
+      lastActivity = Date.now() / 1000;
+      setEngineUI('active');
+      const flags = [
+        optOrientationOn  ? '方向校正✓' : '方向校正✗',
+        optUnwarpingOn    ? '畸变矫正✓' : '畸变矫正✗',
+        optTextlineOriOn  ? '竖排文字✓' : '',
+      ].filter(Boolean).join('  ');
+      toast(`OCR 引擎已启动 ✓  ${flags}`);
+    } catch (e) {
+      engineLoaded = false;
+      setEngineUI('standby');
+      lockEngineOptions(false);
+      toast('引擎启动失败：' + e.message, true);
+    }
+  });
+
+  btnEngineStop.addEventListener('click', async () => {
+    if (!confirm('确认关闭 OCR 引擎并释放内存？')) return;
+    try {
+      await fetch('/api/model/unload', { method: 'POST' });
+      engineLoaded = false;
+      lastActivity = 0;
+      setEngineUI('standby');
+      lockEngineOptions(false);
+      toast('OCR 引擎已关闭，内存已释放');
+    } catch (e) {
+      toast('关闭失败：' + e.message, true);
+    }
+  });
+
+  // Poll model status every 15 seconds to sync state
+  fetchModelStatus();
+  setInterval(fetchModelStatus, 15000);
+
+  // ── Submit button state ────────────────────────────────────────────────────
+  function updateSubmitBtn() {
+    if (!selectedFile || !engineLoaded) {
+      submitBtn.disabled = true;
+      submitBtn.title = !engineLoaded ? '请先启动 OCR 引擎' : '';
+    } else {
+      submitBtn.disabled = false;
+      submitBtn.title = '';
+    }
+  }
+
+  // ── File handling ──────────────────────────────────────────────────────────
+  function setFile(f) {
+    const name = f.name.toLowerCase();
+    const isPdf = name.endsWith('.pdf');
+    const isImg = name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+    if (!f || (!isPdf && !isImg)) {
+      toast('请选择 PDF、JPG 或 PNG 文件', true);
+      return;
+    }
+    if (f.size > 200 * 1024 * 1024) {
+      toast('文件超过 200 MB 限制', true);
+      return;
+    }
+    selectedFile = f;
+    fileName.textContent = f.name;
+    fileSize.textContent = formatSize(f.size);
+    fileTag.classList.add('show');
+
+    // 图片文件只能输出 markdown/docx，禁用可搜索PDF模式
+    const pdfModeBtn = document.querySelector('.mode-btn[data-mode="pdf"]');
+    const mdModeBtn  = document.querySelector('.mode-btn[data-mode="markdown"]');
+    if (isImg) {
+      pdfModeBtn.disabled = true;
+      pdfModeBtn.title    = '图片文件不支持此模式';
+      pdfModeBtn.style.opacity = '0.4';
+      pdfModeBtn.style.cursor  = 'not-allowed';
+      // 强制切换到 markdown 模式
+      if (selectedMode === 'pdf') {
+        pdfModeBtn.classList.remove('active');
+        mdModeBtn.classList.add('active');
+        selectedMode = 'markdown';
+      }
+    } else {
+      pdfModeBtn.disabled = false;
+      pdfModeBtn.title    = '';
+      pdfModeBtn.style.opacity = '';
+      pdfModeBtn.style.cursor  = '';
+    }
+
+    updateSubmitBtn();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    fileTag.classList.remove('show');
+    // 恢复 PDF 模式按钮
+    const pdfModeBtn = document.querySelector('.mode-btn[data-mode="pdf"]');
+    pdfModeBtn.disabled = false;
+    pdfModeBtn.title    = '';
+    pdfModeBtn.style.opacity = '';
+    pdfModeBtn.style.cursor  = '';
+    updateSubmitBtn();
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024)       return bytes + ' B';
+    if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  fileClear.addEventListener('click', clearFile);
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+
+  // ── Mode selector ──────────────────────────────────────────────────────────
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedMode = btn.dataset.mode;
+      // 仅 markdown 模式显示页眉页脚清理开关
+      cleanHeaderRow.style.display = (selectedMode === 'markdown') ? '' : 'none';
+    });
+  });
+
+  // ── Clean header toggle ────────────────────────────────────────────────────
+  cleanHeaderToggle.addEventListener('change', () => {
+    cleanHeaderEnabled = cleanHeaderToggle.checked;
+  });
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  submitBtn.addEventListener('click', async () => {
+    if (!selectedFile || !engineLoaded) return;
+
+    submitBtn.disabled = true;
+    progressPanel.classList.add('show');
+    resultPanel.classList.remove('show');
+    resultGrid.innerHTML = '';
+    statsBar.innerHTML   = '';
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('mode', selectedMode);
+    fd.append('clean_header', (selectedMode === 'markdown' && cleanHeaderEnabled) ? '1' : '0');
+
+    let jobId;
+    try {
+      const r  = await fetch('/api/upload', { method: 'POST', body: fd });
+      const d  = await r.json();
+      if (r.status === 503) {
+        toast('请先启动 OCR 引擎', true);
+        document.getElementById('enginePanel').scrollIntoView({ behavior: 'smooth' });
+        updateSubmitBtn();
+        return;
+      }
+      if (!r.ok) { toast(d.error || '上传失败', true); updateSubmitBtn(); return; }
+      jobId = d.job_id;
+      // Update last activity time locally
+      lastActivity = Date.now() / 1000;
+    } catch (e) {
+      toast('网络错误：' + e.message, true);
+      updateSubmitBtn();
+      return;
+    }
+
+    const origName = selectedFile.name;
+    clearFile();
+
+    const row = createJobRow(jobId, origName);
+    jobsList.appendChild(row.el);
+    activeJobs[jobId] = { row, origName, mode: selectedMode, startTime: Date.now() };
+
+    listenJob(jobId);
+  });
+
+  // ── Job row ────────────────────────────────────────────────────────────────
+  function createJobRow(jobId, name) {
+    const el = document.createElement('div');
+    el.className = 'job-row';
+    el.id = 'job-' + jobId;
+    el.style.setProperty('--pct', '0%');
+    el.innerHTML = `
+      <div class="job-spinner"></div>
+      <div class="job-info">
+        <div class="job-title">${escHtml(name)}</div>
+        <div class="job-message" id="msg-${jobId}">排队中…</div>
+        <div class="job-timing" id="timing-${jobId}"></div>
+      </div>
+      <div class="job-pct" id="pct-${jobId}">0%</div>
+      <button class="cancel-btn" id="cancel-${jobId}">取消</button>
+    `;
+    document.getElementById(`cancel-${jobId}`)?.addEventListener('click', () => cancelJob(jobId));
+    return { el };
+  }
+
+  // ── 时间格式化工具 ──────────────────────────────────────────────────────────
+  function fmtDuration(ms) {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}秒`;
+    const m = Math.floor(s / 60), rs = s % 60;
+    return rs > 0 ? `${m}分${rs}秒` : `${m}分钟`;
+  }
+  function fmtTime(date) {
+    return date.toTimeString().slice(0, 8);
+  }
+
+  function updateJobRow(jobId, data) {
+    const el     = document.getElementById('job-' + jobId);
+    const msg    = document.getElementById('msg-' + jobId);
+    const pct    = document.getElementById('pct-' + jobId);
+    const timing = document.getElementById('timing-' + jobId);
+    if (!el) return;
+
+    const p = data.percent ?? 0;
+    el.style.setProperty('--pct', p + '%');
+    el.style.setProperty('--pct-dec', p / 100);  // 供背景填充式进度条用
+    if (pct) pct.textContent = p + '%';
+    if (msg) msg.textContent = data.message || '';
+
+    // ── 时间计算 ──────────────────────────────────────────────────────────────
+    if (timing) {
+      const startTime = (activeJobs[jobId] || {}).startTime || Date.now();
+      const elapsed   = Date.now() - startTime;
+      const finalStatus = data.job_status || data.status;
+
+      if (finalStatus === 'done') {
+        timing.textContent = `耗时 ${fmtDuration(elapsed)} · 完成于 ${fmtTime(new Date())}`;
+        timing.style.color = '#16a34a';
+      } else if (['error', 'cancelled'].includes(finalStatus)) {
+        timing.textContent = `已用 ${fmtDuration(elapsed)}`;
+        timing.style.color = '';
+      } else if (p >= 5) {
+        // 进度 ≥5% 才推算，避免初始阶段误差过大
+        const estTotal  = elapsed / (p / 100);
+        const estRemain = Math.max(0, estTotal - elapsed);
+        const estFinish = new Date(Date.now() + estRemain);
+        timing.textContent = `已用 ${fmtDuration(elapsed)} · 预计还需 ${fmtDuration(estRemain)} · ${fmtTime(estFinish)} 完成`;
+        timing.style.color = '';
+      } else {
+        timing.textContent = `已用 ${fmtDuration(elapsed)}`;
+        timing.style.color = '';
+      }
+    }
+
+    const finalStatus = data.job_status || data.status;
+    if (finalStatus === 'done') {
+      el.classList.add('done');
+      if (pct) pct.textContent = '✓';
+      document.getElementById(`cancel-${jobId}`)?.remove();
+    } else if (finalStatus === 'error') {
+      el.classList.add('error');
+      if (pct) pct.textContent = 'ERR';
+      document.getElementById(`cancel-${jobId}`)?.remove();
+    } else if (finalStatus === 'cancelled') {
+      el.classList.add('error');
+      if (pct) pct.textContent = '—';
+      document.getElementById(`cancel-${jobId}`)?.remove();
+    }
+  }
+
+  // ── SSE listener ───────────────────────────────────────────────────────────
+  function listenJob(jobId) {
+    const es = new EventSource(`/api/progress/${jobId}`);
+    let lastData = null;
+
+    // 每秒刷新时间，不依赖 SSE 推送频率
+    const ticker = setInterval(() => {
+      if (lastData) updateJobRow(jobId, lastData);
+    }, 1000);
+
+    es.onmessage = e => {
+      let data;
+      try { data = JSON.parse(e.data); } catch { return; }
+      lastData = data;
+      updateJobRow(jobId, data);
+
+      const finalStatus = data.job_status || data.status;
+      if (finalStatus === 'done' && data.result) {
+        clearInterval(ticker);
+        es.close();
+        showResult(jobId, data.result);
+        updateSubmitBtn();
+      } else if (['error', 'cancelled'].includes(finalStatus)) {
+        clearInterval(ticker);
+        es.close();
+        toast(data.error || (finalStatus === 'cancelled' ? '已取消' : '识别出错'), finalStatus === 'error');
+        updateSubmitBtn();
+      }
+    };
+    es.onerror = () => {
+      clearInterval(ticker);
+      es.close();
+      pollJob(jobId);
+    };
+  }
+
+  async function pollJob(jobId) {
+    for (let i = 0; i < 240; i++) {
+      await sleep(2000);
+      try {
+        const r = await fetch(`/api/job/${jobId}`);
+        const d = await r.json();
+        updateJobRow(jobId, { ...(d.progress || {}), job_status: d.status });
+        if (d.status === 'done') { showResult(jobId, d.result); updateSubmitBtn(); return; }
+        if (['error','cancelled'].includes(d.status)) { updateSubmitBtn(); return; }
+      } catch { break; }
+    }
+  }
+
+  // ── Result display ─────────────────────────────────────────────────────────
+  function showResult(jobId, result) {
+    if (!result) return;
+    resultPanel.classList.add('show');
+
+    const mode  = result.mode;
+    const name  = result.original_name || 'output';
+    const pages = result.total_pages != null ? result.total_pages : '1';
+    const baseName = name.replace(/\.(pdf|jpg|jpeg|png)$/i, '');
+
+    if (mode === 'pdf') {
+      const did = result.download_id;
+      addResultCard('可搜索 PDF', baseName + '_ocr.pdf', `/api/download/pdf/${did}?name=${encodeURIComponent(name)}`);
+    } else {
+      const did = result.download_id;
+      if (result.has_docx) {
+        addResultCard('Word 文档', baseName + '.docx', `/api/download/docx/${did}?name=${encodeURIComponent(name)}`);
+      }
+      addResultCard('Markdown', baseName + '.md.zip', `/api/download/markdown/${did}?name=${encodeURIComponent(name)}`);
+    }
+
+    statsBar.innerHTML = `
+      <div class="stat"><div class="stat-val">${pages}</div><div class="stat-key">${result.total_pages != null ? '页面数' : '图片'}</div></div>
+      <div class="stat"><div class="stat-val">${result.failed?.length ?? 0}</div><div class="stat-key">失败页</div></div>
+      <div class="stat"><div class="stat-val">${mode === 'pdf' ? 'PDF' : (result.has_docx ? 'DOCX' : 'MD')}</div><div class="stat-key">输出格式</div></div>
+    `;
+    toast('识别完成！可以下载了 ✓');
+  }
+
+  function addResultCard(type, filename, href) {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <div class="result-type">${escHtml(type)}</div>
+      <div class="result-filename">${escHtml(filename)}</div>
+      <a class="download-btn" href="${escHtml(href)}" download>⬇ 下载</a>
+    `;
+    resultGrid.appendChild(card);
+  }
+
+  // ── Cancel ─────────────────────────────────────────────────────────────────
+  async function cancelJob(jobId) {
+    try {
+      await fetch(`/api/cancel/${jobId}`, { method: 'POST' });
+    } catch (e) {
+      toast('取消请求失败', true);
+    }
+  }
+
+  // ── Util ───────────────────────────────────────────────────────────────────
+  const escHtml = s => String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+})();
+</script>
+</body>
+</html>
